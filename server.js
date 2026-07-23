@@ -64,6 +64,13 @@ function escapeAttrStr(str) {
   return String(str || '').replace(/"/g, '&quot;');
 }
 
+function escapeHtmlStr(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 // 전체 상품 목록 (관리자 페이지용 - 오늘 것 + 지난 것 모두)
 app.get('/api/products', (req, res) => {
   res.json(readData());
@@ -178,7 +185,12 @@ app.get('/', (req, res) => {
   <meta name="twitter:description" content="${escapeAttrStr(og.description)}">
   ${imageUrl ? `<meta name="twitter:image" content="${escapeAttrStr(imageUrl)}">` : ''}
 `;
-    res.send(html.replace('<!--OG_META-->', metaTags));
+    res.send(
+      html
+        .replace('<!--OG_META-->', metaTags)
+        .replace('{{OG_TITLE}}', escapeHtmlStr(og.title))
+        .replace('{{OG_DESC}}', escapeHtmlStr(og.description))
+    );
   });
 });
 

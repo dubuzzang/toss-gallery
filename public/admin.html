@@ -9,14 +9,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
-    --bg: #0F1115;
-    --surface: #1A1D23;
-    --surface-2: #22262E;
-    --amber: #FFC107;
-    --coral: #FF5470;
+    --bg: #070B16;
+    --surface: #101A2E;
+    --surface-2: #16223C;
+    --blue: #0064FF;
+    --blue-light: #4EA1FF;
     --text: #F5F5F0;
     --text-muted: #9CA3AF;
-    --border: #2A2E36;
+    --border: #1E2B47;
   }
   *{ box-sizing: border-box; }
   html, body{ margin:0; padding:0; }
@@ -37,9 +37,9 @@
     font-family:'Space Grotesk', sans-serif;
     font-size: 12px;
     letter-spacing: 0.14em;
-    color: var(--coral);
-    background: rgba(255,84,112,0.1);
-    border: 1px solid rgba(255,84,112,0.35);
+    color: var(--blue-light);
+    background: rgba(78,161,255,0.1);
+    border: 1px solid rgba(78,161,255,0.35);
     padding: 5px 12px;
     border-radius: 999px;
     margin-bottom: 14px;
@@ -77,8 +77,8 @@
     border-radius: 10px;
     cursor: pointer;
   }
-  .add-btn{ background: var(--amber); color: #1a1305; border: none; }
-  .import-btn:hover{ border-color: rgba(255,193,7,0.5); }
+  .add-btn{ background: var(--blue); color: #ffffff; border: none; }
+  .import-btn:hover{ border-color: rgba(0,100,255,0.5); }
 
   .grid{
     max-width: 1100px;
@@ -115,8 +115,8 @@
     position: absolute;
     top: 12px;
     left: -34px;
-    background: var(--coral);
-    color: #12060a;
+    background: var(--blue-light);
+    color: #ffffff;
     font-family:'Space Grotesk', sans-serif;
     font-weight: 700;
     font-size: 12px;
@@ -134,7 +134,7 @@
     padding: 3px 8px;
     border-radius: 999px;
   }
-  .date-badge.today{ background: rgba(255,193,7,0.85); color: #1a1305; font-weight: 700; }
+  .date-badge.today{ background: rgba(0,100,255,0.85); color: #ffffff; font-weight: 700; }
   .card-body{
     padding: 14px 14px 16px;
     display: flex;
@@ -149,7 +149,7 @@
     min-height: 38px;
   }
   .price-row{ display: flex; align-items: baseline; gap: 8px; }
-  .discount-tag{ color: var(--coral); font-family:'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; }
+  .discount-tag{ color: var(--blue-light); font-family:'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; }
   .price{ font-family:'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; }
   .go-btn{
     margin-top: auto;
@@ -185,7 +185,7 @@
     justify-content: center;
     z-index: 2;
   }
-  .delete-btn:hover{ color: var(--coral); background: rgba(0,0,0,0.8); }
+  .delete-btn:hover{ color: var(--blue-light); background: rgba(0,0,0,0.8); }
 
   .empty{
     max-width: 480px;
@@ -213,7 +213,7 @@
     width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
     padding: 11px 12px; border-radius: 10px; font-size: 14px; font-family: 'Inter', sans-serif;
   }
-  .field input:focus{ outline: none; border-color: var(--amber); }
+  .field input:focus{ outline: none; border-color: var(--blue); }
   .preview{
     width: 100%; aspect-ratio: 4/2.2; border-radius: 10px; background: var(--surface-2);
     overflow: hidden; margin-bottom: 14px; display: flex; align-items:center; justify-content:center;
@@ -226,7 +226,7 @@
     font-family:'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer;
   }
   .btn-cancel{ background: var(--surface-2); color: var(--text); border: 1px solid var(--border) !important; }
-  .btn-save{ background: var(--amber); color: #1a1305; }
+  .btn-save{ background: var(--blue); color: #ffffff; }
   .btn-save:disabled{ opacity: 0.45; cursor: not-allowed; }
 
   .import-modal{ max-width: 560px; }
@@ -234,7 +234,7 @@
     background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
     padding: 14px 16px; margin-bottom: 16px; font-size: 13px; color: var(--text-muted);
   }
-  .import-summary b{ color: var(--amber); }
+  .import-summary b{ color: var(--blue); }
   .import-table-wrap{
     max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 18px;
   }
@@ -248,8 +248,8 @@
     border: 1.5px dashed var(--border); border-radius: 12px; padding: 28px 16px; text-align: center;
     color: var(--text-muted); font-size: 13px; cursor: pointer; margin-bottom: 6px;
   }
-  .dropzone:hover{ border-color: var(--amber); color: var(--text); }
-  .dropzone.dragover{ border-color: var(--amber); background: rgba(255,193,7,0.06); }
+  .dropzone:hover{ border-color: var(--blue); color: var(--text); }
+  .dropzone.dragover{ border-color: var(--blue); background: rgba(0,100,255,0.06); }
 
   .toast{
     position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(20px);
@@ -258,6 +258,16 @@
     transition: all .25s ease; pointer-events: none; z-index: 40;
   }
   .toast.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 480px){
+    header{ padding: 32px 16px 20px; }
+    .toolbar{ padding: 0 16px; justify-content: center; }
+    .og-section{ padding: 0 16px; }
+    .og-card{ flex-direction: column; align-items: stretch; }
+    .og-preview{ width: 100%; height: 140px; }
+    .grid{ padding: 0 16px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+    .modal{ padding: 20px; }
+  }
 
   .og-section{
     max-width: 1100px;
@@ -311,8 +321,8 @@
     cursor: pointer;
     margin-bottom: 10px;
   }
-  .og-dropzone:hover{ border-color: var(--amber); color: var(--text); }
-  .og-dropzone.dragover{ border-color: var(--amber); background: rgba(255,193,7,0.06); }
+  .og-dropzone:hover{ border-color: var(--blue); color: var(--text); }
+  .og-dropzone.dragover{ border-color: var(--blue); background: rgba(0,100,255,0.06); }
   .og-url-row{ display: flex; gap: 8px; }
   .og-url-row input{
     flex: 1;
@@ -324,8 +334,8 @@
     font-size: 13px;
   }
   .og-url-row button{
-    background: var(--amber);
-    color: #1a1305;
+    background: var(--blue);
+    color: #ffffff;
     border: none;
     border-radius: 8px;
     padding: 0 16px;
@@ -360,6 +370,13 @@
       <div class="og-url-row">
         <input type="text" id="ogUrlInput" placeholder="또는 이미지 웹주소(URL) 붙여넣기">
         <button onclick="saveOgUrl()">저장</button>
+      </div>
+      <div class="og-url-row" style="margin-top:10px;">
+        <input type="text" id="ogTitleInput" placeholder="사이트 제목">
+      </div>
+      <div class="og-url-row" style="margin-top:8px;">
+        <input type="text" id="ogDescInput" placeholder="사이트 설명 문구">
+        <button onclick="saveOgText()">제목/설명 저장</button>
       </div>
     </div>
   </div>
@@ -690,7 +707,25 @@ async function loadOg(){
     const og = await res.json();
     renderOgPreview(og.image);
     document.getElementById('ogUrlInput').value = '';
+    document.getElementById('ogTitleInput').value = og.title || '';
+    document.getElementById('ogDescInput').value = og.description || '';
   }catch(e){ /* 무시 */ }
+}
+
+async function saveOgText(){
+  const title = document.getElementById('ogTitleInput').value.trim();
+  const description = document.getElementById('ogDescInput').value.trim();
+  if(!title || !description){ showToast('제목과 설명을 모두 입력해주세요.'); return; }
+  try{
+    await fetch('/api/og', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, description })
+    });
+    showToast('제목/설명을 저장했어요!');
+  }catch(e){
+    showToast('저장 중 문제가 생겼어요.');
+  }
 }
 
 function renderOgPreview(imagePath){
