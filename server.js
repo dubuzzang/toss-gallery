@@ -71,7 +71,7 @@ function writeData(products) {
 const DEFAULT_OG = {
   title: '쇼핑 레이더 오늘의 특가 갤러리',
   description: '토스쇼핑 활동으로 수수료를 받습니다',
-  badge: '토스 오늘의 특가 모음',
+  badge: '토스쇼핑 활동으로 수수료를 받습니다',
   image: ''
 };
 
