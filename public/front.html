@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>쇼핑 레이더 오늘의 특가 갤러리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0F1115; --surface: #1A1D23; --surface-2: #22262E;
+    --amber: #FFC107; --coral: #FF5470; --text: #F5F5F0; --text-muted: #9CA3AF; --border: #2A2E36;
+  }
+  *{ box-sizing: border-box; }
+  html, body{ margin:0; padding:0; }
+  body{ background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; padding-bottom: 60px; }
+  header{ padding: 48px 24px 28px; text-align: center; border-bottom: 1px solid var(--border); }
+  .eyebrow{
+    display:inline-block; font-family:'Space Grotesk', sans-serif; font-size: 12px; letter-spacing: 0.14em;
+    color: var(--amber); background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.35);
+    padding: 5px 12px; border-radius: 999px; margin-bottom: 14px;
+  }
+  h1{ font-family:'Space Grotesk', sans-serif; font-weight: 700; font-size: clamp(26px, 5vw, 42px); margin: 0 0 8px; letter-spacing: -0.01em; }
+  header p{ color: var(--text-muted); margin: 0; font-size: 13px; }
+  .grid{ max-width: 1100px; margin: 40px auto 0; padding: 0 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+  .card{ position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; transition: transform .18s ease, border-color .18s ease; display: flex; flex-direction: column; }
+  .card:hover{ transform: translateY(-4px); border-color: rgba(255,193,7,0.4); }
+  .card a.photo-link{ display: block; position: relative; aspect-ratio: 1 / 1; background: var(--surface-2); overflow: hidden; }
+  .card img{ width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
+  .card a.photo-link:hover img{ transform: scale(1.05); }
+  .ribbon{ position: absolute; top: 12px; left: -34px; background: var(--coral); color: #12060a; font-family:'Space Grotesk', sans-serif; font-weight: 700; font-size: 12px; padding: 4px 40px; transform: rotate(-38deg); box-shadow: 0 2px 6px rgba(0,0,0,0.35); }
+  .card-body{ padding: 14px 14px 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .card-title{ font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--text); min-height: 38px; }
+  .price-row{ display: flex; align-items: baseline; gap: 8px; }
+  .discount-tag{ color: var(--coral); font-family:'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; }
+  .price{ font-family:'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; color: var(--text); }
+  .go-btn{ margin-top: auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--amber); color: #1a1305; text-decoration: none; font-family:'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px; padding: 10px 12px; border-radius: 10px; transition: filter .15s ease; }
+  .go-btn:hover{ filter: brightness(1.08); }
+  .empty{ max-width: 480px; margin: 60px auto; text-align: center; color: var(--text-muted); padding: 0 24px; }
+  .empty h2{ font-family:'Space Grotesk', sans-serif; color: var(--text); font-size: 20px; margin-bottom: 8px; }
+  footer{ text-align: center; color: var(--text-muted); font-size: 11px; margin-top: 50px; padding: 0 24px; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="eyebrow">MY DEAL PICKS</span>
+  <h1>쇼핑 레이더 오늘의 특가 갤러리</h1>
+  <p>토스쇼핑 활동으로 수수료를 받습니다</p>
+</header>
+
+<div id="grid" class="grid"></div>
+<div id="emptyState" class="empty" style="display:none;">
+  <h2>오늘 등록된 특가가 아직 없어요</h2>
+  <p>곧 새로운 특가가 올라올 예정이에요.</p>
+</div>
+
+<footer>매일 자정 기준으로 새 특가로 갱신돼요</footer>
+
+<script>
+let lastDate = todayStr();
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function normalizeTossImg(url){
+  const match = String(url).match(/image-optimize\/[^/]+\/(https?%3A.*)$/i);
+  if(match){ try{ return decodeURIComponent(match[1]); }catch(e){} }
+  return url;
+}
+function proxyImg(url){ return 'https://images.weserv.nl/?url=' + encodeURIComponent(normalizeTossImg(url)); }
+function handleImgError(imgEl, originalUrl){
+  const direct = normalizeTossImg(originalUrl);
+  if(imgEl.dataset.fallback !== '1'){ imgEl.dataset.fallback = '1'; imgEl.src = direct; }
+  else{ imgEl.style.opacity = 0.2; }
+}
+function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+function escapeAttr(str){ return String(str).replace(/"/g, '&quot;'); }
+
+async function loadAndRender(){
+  let products = [];
+  try{
+    const res = await fetch('/api/products/today');
+    products = await res.json();
+  }catch(e){ products = []; }
+  render(products);
+}
+
+function render(products){
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('emptyState');
+  grid.innerHTML = '';
+  if(products.length === 0){ empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  products.slice().reverse().forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const ribbonText = p.discount ? `${p.discount}%` : '특가';
+    const priceRow = p.price
+      ? `<div class="price-row">${p.discount ? `<span class="discount-tag">${p.discount}%</span>` : ''}<span class="price">${escapeHtml(p.price)}</span></div>`
+      : '';
+    card.innerHTML = `
+      <a class="photo-link" href="${escapeAttr(p.link)}" target="_blank" rel="noopener noreferrer">
+        <span class="ribbon">${escapeHtml(ribbonText)}</span>
+        <img src="${escapeAttr(proxyImg(p.img))}" alt="${escapeAttr(p.name)}" onerror="handleImgError(this, '${escapeAttr(p.img)}')">
+      </a>
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(p.name)}</div>
+        ${priceRow}
+        <a class="go-btn" href="${escapeAttr(p.link)}" target="_blank" rel="noopener noreferrer">상품 보러가기 →</a>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+setInterval(() => {
+  const now = todayStr();
+  if(now !== lastDate){ lastDate = now; loadAndRender(); }
+}, 30000);
+setInterval(loadAndRender, 60000);
+
+loadAndRender();
+</script>
+
+</body>
+</html>
