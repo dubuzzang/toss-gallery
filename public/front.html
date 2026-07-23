@@ -39,6 +39,13 @@
   .empty{ max-width: 480px; margin: 60px auto; text-align: center; color: var(--text-muted); padding: 0 24px; }
   .empty h2{ font-family:'Space Grotesk', sans-serif; color: var(--text); font-size: 20px; margin-bottom: 8px; }
   footer{ text-align: center; color: var(--text-muted); font-size: 11px; margin-top: 50px; padding: 0 24px; }
+  .toolbar{ max-width: 1100px; margin: 26px auto 0; padding: 0 24px; display: flex; justify-content: flex-end; }
+  .sort-select{
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px;
+    padding: 9px 14px; border-radius: 10px; cursor: pointer;
+  }
+  .sort-select:focus{ outline: none; border-color: var(--amber); }
 </style>
 </head>
 <body>
@@ -48,6 +55,15 @@
   <h1>쇼핑 레이더 오늘의 특가 갤러리</h1>
   <p>토스쇼핑 활동으로 수수료를 받습니다</p>
 </header>
+
+<div class="toolbar">
+  <select id="sortSelect" class="sort-select" onchange="onSortChange()">
+    <option value="latest">최신 등록순</option>
+    <option value="discount">할인율 높은순</option>
+    <option value="priceLow">가격 낮은순</option>
+    <option value="priceHigh">가격 높은순</option>
+  </select>
+</div>
 
 <div id="grid" class="grid"></div>
 <div id="emptyState" class="empty" style="display:none;">
@@ -78,12 +94,40 @@ function handleImgError(imgEl, originalUrl){
 function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
 function escapeAttr(str){ return String(str).replace(/"/g, '&quot;'); }
 
+let lastProducts = [];
+let currentSort = 'latest';
+
+function parseNum(str){
+  const n = parseInt(String(str || '').replace(/[^0-9]/g, ''), 10);
+  return isNaN(n) ? 0 : n;
+}
+
+function onSortChange(){
+  currentSort = document.getElementById('sortSelect').value;
+  render(lastProducts);
+}
+
+function sortProducts(products){
+  const list = products.slice();
+  if(currentSort === 'discount'){
+    list.sort((a, b) => parseNum(b.discount) - parseNum(a.discount));
+  }else if(currentSort === 'priceLow'){
+    list.sort((a, b) => parseNum(a.price) - parseNum(b.price));
+  }else if(currentSort === 'priceHigh'){
+    list.sort((a, b) => parseNum(b.price) - parseNum(a.price));
+  }else{
+    list.reverse(); // 최신 등록순 (뒤에 추가된 것이 먼저)
+  }
+  return list;
+}
+
 async function loadAndRender(){
   let products = [];
   try{
     const res = await fetch('/api/products/today');
     products = await res.json();
   }catch(e){ products = []; }
+  lastProducts = products;
   render(products);
 }
 
@@ -94,7 +138,7 @@ function render(products){
   if(products.length === 0){ empty.style.display = 'block'; return; }
   empty.style.display = 'none';
 
-  products.slice().reverse().forEach(p => {
+  sortProducts(products).forEach(p => {
     const card = document.createElement('div');
     card.className = 'card';
     const ribbonText = p.discount ? `${p.discount}%` : '특가';
