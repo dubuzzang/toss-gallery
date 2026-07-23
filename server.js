@@ -6,7 +6,11 @@ const multer = require('multer');
 const app = express();
 app.use(express.json());
 
-const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads');
+// 레일웨이에 "Volume"을 /data 경로로 연결해두면 재배포해도 데이터가 안 사라져요.
+// 볼륨이 없으면(로컬 테스트 등) 그냥 프로젝트 폴더에 저장해요.
+const DATA_DIR = fs.existsSync('/data') ? '/data' : __dirname;
+
+const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const upload = multer({
@@ -23,8 +27,8 @@ const upload = multer({
 // 업로드된 사진 파일만 공개로 서빙 (관리자/프론트 페이지 파일은 여기 없음)
 app.use('/uploads', express.static(UPLOAD_DIR));
 
-const DATA_FILE = path.join(__dirname, 'data.json');
-const OG_FILE = path.join(__dirname, 'og.json');
+const DATA_FILE = path.join(DATA_DIR, 'data.json');
+const OG_FILE = path.join(DATA_DIR, 'og.json');
 
 // ---- 관리자 비밀번호 보호 ----
 // Railway의 Variables 탭에서 ADMIN_USER, ADMIN_PASSWORD를 꼭 원하는 값으로 설정해주세요.
