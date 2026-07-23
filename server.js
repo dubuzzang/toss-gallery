@@ -20,10 +20,32 @@ const upload = multer({
   limits: { fileSize: 8 * 1024 * 1024 } // 8MB
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// 업로드된 사진 파일만 공개로 서빙 (관리자/프론트 페이지 파일은 여기 없음)
+app.use('/uploads', express.static(UPLOAD_DIR));
 
 const DATA_FILE = path.join(__dirname, 'data.json');
 const OG_FILE = path.join(__dirname, 'og.json');
+
+// ---- 관리자 비밀번호 보호 ----
+// Railway의 Variables 탭에서 ADMIN_USER, ADMIN_PASSWORD를 꼭 원하는 값으로 설정해주세요.
+// 설정하지 않으면 아래 기본값(admin / toss1234)으로 동작하니, 배포 후 꼭 바꿔주세요.
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'toss1234';
+
+function requireAdmin(req, res, next) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Basic ') ? header.slice(6) : '';
+  let decoded = '';
+  try { decoded = Buffer.from(token, 'base64').toString('utf-8'); } catch (e) { /* noop */ }
+  const sep = decoded.indexOf(':');
+  const user = sep === -1 ? decoded : decoded.slice(0, sep);
+  const pass = sep === -1 ? '' : decoded.slice(sep + 1);
+
+  if (user === ADMIN_USER && pass === ADMIN_PASSWORD) return next();
+
+  res.set('WWW-Authenticate', 'Basic realm="Admin Only"');
+  return res.status(401).send('관리자 인증이 필요해요.');
+}
 
 function todayStr() {
   const d = new Date();
@@ -72,20 +94,22 @@ function escapeHtmlStr(str) {
     .replace(/>/g, '&gt;');
 }
 
-// 전체 상품 목록 (관리자 페이지용 - 오늘 것 + 지난 것 모두)
-app.get('/api/products', (req, res) => {
+// ---- 상품 API ----
+
+// 전체 상품 목록 (관리자 전용 - 오늘 것 + 지난 것 모두)
+app.get('/api/products', requireAdmin, (req, res) => {
   res.json(readData());
 });
 
-// 오늘 상품만 (방문자 페이지용)
+// 오늘 상품만 (방문자 페이지용 - 누구나 조회 가능)
 app.get('/api/products/today', (req, res) => {
   const today = todayStr();
   const products = readData().filter(p => p.addedDate === today);
   res.json(products);
 });
 
-// 상품 1개 추가
-app.post('/api/products', (req, res) => {
+// 상품 1개 추가 (관리자 전용)
+app.post('/api/products', requireAdmin, (req, res) => {
   const products = readData();
   const p = {
     id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
@@ -104,8 +128,8 @@ app.post('/api/products', (req, res) => {
   res.json(p);
 });
 
-// 엑셀에서 뽑은 여러 상품 한번에 추가
-app.post('/api/products/bulk', (req, res) => {
+// 엑셀에서 뽑은 여러 상품 한번에 추가 (관리자 전용)
+app.post('/api/products/bulk', requireAdmin, (req, res) => {
   const products = readData();
   const today = todayStr();
   const existingLinks = new Set(products.filter(p => p.addedDate === today).map(p => p.link));
@@ -132,21 +156,20 @@ app.post('/api/products/bulk', (req, res) => {
   res.json({ added });
 });
 
-// 상품 삭제
-app.delete('/api/products/:id', (req, res) => {
+// 상품 삭제 (관리자 전용)
+app.delete('/api/products/:id', requireAdmin, (req, res) => {
   let products = readData();
   products = products.filter(p => p.id !== req.params.id);
   writeData(products);
   res.json({ ok: true });
 });
 
-// 공유 미리보기(OG) 설정 조회
-app.get('/api/og', (req, res) => {
+// ---- 공유 미리보기(OG) API (관리자 전용) ----
+app.get('/api/og', requireAdmin, (req, res) => {
   res.json(readOg());
 });
 
-// 공유 미리보기 이미지 주소로 저장
-app.post('/api/og', (req, res) => {
+app.post('/api/og', requireAdmin, (req, res) => {
   const og = readOg();
   if (typeof req.body.image === 'string') og.image = req.body.image.trim();
   if (typeof req.body.title === 'string' && req.body.title.trim()) og.title = req.body.title.trim();
@@ -156,8 +179,7 @@ app.post('/api/og', (req, res) => {
   res.json(og);
 });
 
-// 공유 미리보기 이미지 파일 업로드
-app.post('/api/og/upload', upload.single('image'), (req, res) => {
+app.post('/api/og/upload', requireAdmin, upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: '파일이 없어요.' });
   const og = readOg();
   og.image = '/uploads/' + req.file.filename;
@@ -165,7 +187,11 @@ app.post('/api/og/upload', upload.single('image'), (req, res) => {
   res.json(og);
 });
 
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+// ---- 페이지 ----
+
+app.get('/admin', requireAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'admin.html'));
+});
 
 app.get('/', (req, res) => {
   const og = readOg();
@@ -174,7 +200,7 @@ app.get('/', (req, res) => {
     ? (og.image.startsWith('http') ? og.image : host + og.image)
     : '';
 
-  fs.readFile(path.join(__dirname, 'public', 'front.html'), 'utf-8', (err, html) => {
+  fs.readFile(path.join(__dirname, 'views', 'front.html'), 'utf-8', (err, html) => {
     if (err) return res.status(500).send('페이지를 불러오지 못했어요.');
     const metaTags = `
   <meta property="og:title" content="${escapeAttrStr(og.title)}">
