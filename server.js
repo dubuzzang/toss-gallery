@@ -45,6 +45,7 @@ function writeData(products) {
 const DEFAULT_OG = {
   title: '쇼핑 레이더 오늘의 특가 갤러리',
   description: '토스쇼핑 활동으로 수수료를 받습니다',
+  badge: '토스 오늘의 특가 모음',
   image: ''
 };
 
@@ -150,6 +151,7 @@ app.post('/api/og', (req, res) => {
   if (typeof req.body.image === 'string') og.image = req.body.image.trim();
   if (typeof req.body.title === 'string' && req.body.title.trim()) og.title = req.body.title.trim();
   if (typeof req.body.description === 'string' && req.body.description.trim()) og.description = req.body.description.trim();
+  if (typeof req.body.badge === 'string' && req.body.badge.trim()) og.badge = req.body.badge.trim();
   writeOg(og);
   res.json(og);
 });
@@ -190,6 +192,7 @@ app.get('/', (req, res) => {
         .replace('<!--OG_META-->', metaTags)
         .replace('{{OG_TITLE}}', escapeHtmlStr(og.title))
         .replace('{{OG_DESC}}', escapeHtmlStr(og.description))
+        .replace('{{OG_BADGE}}', escapeHtmlStr(og.badge))
     );
   });
 });
