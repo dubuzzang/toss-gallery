@@ -401,6 +401,10 @@
     <div class="field"><label>내 제휴 링크</label><input id="inputLink" type="text" placeholder="https://..."></div>
     <div class="field"><label>가격 (선택)</label><input id="inputPrice" type="text" placeholder="예: 12,900원"></div>
     <div class="field"><label>할인율 (선택)</label><input id="inputDiscount" type="text" placeholder="예: 35"></div>
+    <div class="field" style="display:flex; align-items:center; gap:8px;">
+      <input id="inputSoldOut" type="checkbox" style="width:auto;">
+      <label for="inputSoldOut" style="margin:0; cursor:pointer;">품절 상품으로 등록</label>
+    </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">취소</button>
       <button class="btn-save" id="saveBtn" onclick="saveProduct()">추가하기</button>
@@ -465,26 +469,39 @@ function render(){
     const isToday = p.addedDate === today;
     const card = document.createElement('div');
     card.className = 'card' + (isToday ? '' : ' expired');
-    const ribbonText = p.discount ? `${p.discount}%` : '특가';
+    const ribbonText = p.soldOut ? '품절' : (p.discount ? `${p.discount}% 할인` : '특가');
     const priceRow = p.price
-      ? `<div class="price-row">${p.discount ? `<span class="discount-tag">${p.discount}%</span>` : ''}<span class="price">${escapeHtml(p.price)}</span></div>`
+      ? `<div class="price-row">${p.discount ? `<span class="discount-tag">${p.discount}% 할인</span>` : ''}<span class="price">${escapeHtml(p.price)}</span></div>`
       : '';
     card.innerHTML = `
       <button class="delete-btn" title="삭제">×</button>
       <a class="photo-link" href="${escapeAttr(p.link)}" target="_blank" rel="noopener noreferrer">
-        <span class="ribbon">${escapeHtml(ribbonText)}</span>
-        <img src="${escapeAttr(proxyImg(p.img))}" alt="${escapeAttr(p.name)}" onerror="handleImgError(this, '${escapeAttr(p.img)}')">
+        <span class="ribbon" style="${p.soldOut ? 'background:#4B5568;' : ''}">${escapeHtml(ribbonText)}</span>
+        <img src="${escapeAttr(proxyImg(p.img))}" alt="${escapeAttr(p.name)}" onerror="handleImgError(this, '${escapeAttr(p.img)}')" style="${p.soldOut ? 'filter:grayscale(1); opacity:0.6;' : ''}">
         <span class="date-badge ${isToday ? 'today' : ''}">${isToday ? '오늘 노출중' : (p.addedDate || '') + ' (만료)'}</span>
       </a>
       <div class="card-body">
         <div class="card-title">${escapeHtml(p.name)}</div>
         ${priceRow}
         <a class="go-btn" href="${escapeAttr(p.link)}" target="_blank" rel="noopener noreferrer">상품 보러가기 →</a>
+        <button class="go-btn soldout-toggle-btn" style="background:${p.soldOut ? 'var(--blue)' : 'var(--surface-2)'}; color:${p.soldOut ? '#fff' : 'var(--text)'}; border:1px solid var(--border);">
+          ${p.soldOut ? '판매중으로 되돌리기' : '품절 처리하기'}
+        </button>
       </div>
     `;
     card.querySelector('.delete-btn').addEventListener('click', () => removeProduct(p.id));
+    card.querySelector('.soldout-toggle-btn').addEventListener('click', () => toggleSoldOut(p.id));
     grid.appendChild(card);
   });
+}
+
+async function toggleSoldOut(id){
+  try{
+    await fetch('/api/products/' + id + '/toggle-soldout', { method: 'POST' });
+    await loadProducts();
+  }catch(e){
+    showToast('품절 상태 변경 중 문제가 생겼어요.');
+  }
 }
 
 async function removeProduct(id){
@@ -505,6 +522,7 @@ function closeModal(){
   document.getElementById('inputLink').value = '';
   document.getElementById('inputPrice').value = '';
   document.getElementById('inputDiscount').value = '';
+  document.getElementById('inputSoldOut').checked = false;
   document.getElementById('preview').innerHTML = '이미지 주소를 입력하면<br>여기 미리보기가 나와요';
 }
 
@@ -524,6 +542,7 @@ async function saveProduct(){
   const link = document.getElementById('inputLink').value.trim();
   const price = document.getElementById('inputPrice').value.trim();
   const discount = document.getElementById('inputDiscount').value.trim();
+  const soldOut = document.getElementById('inputSoldOut').checked;
 
   if(!name || !img || !link){
     showToast('상품명, 사진 주소, 링크를 모두 입력해주세요.');
@@ -538,7 +557,7 @@ async function saveProduct(){
     const res = await fetch('/api/products', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, img, link, price, discount })
+      body: JSON.stringify({ name, img, link, price, discount, soldOut })
     });
     if(!res.ok) throw new Error('save failed');
     await loadProducts();
@@ -592,8 +611,14 @@ const HEADER_KEYS = {
   price: ['가격', '판매가', '현재가', '최저가'],
   discount: ['할인율', '할인'],
   img: ['사진주소', '이미지주소', '사진', '이미지', '썸네일'],
-  link: ['쉐어링크', '내링크', '제휴링크', '링크']
+  link: ['쉐어링크', '내링크', '제휴링크', '링크'],
+  soldOut: ['품절', '재고상태', '판매상태', '재고여부', '재고']
 };
+function isSoldOutValue(v){
+  const s = String(v || '').trim().toLowerCase();
+  if(!s) return false;
+  return ['품절', '매진', 'y', 'yes', 'true', '1', '품절임'].some(k => s.includes(k));
+}
 function normalizeHeader(h){ return String(h).replace(/\s/g, ''); }
 function guessColumnMap(headers){
   const map = {};
@@ -649,7 +674,8 @@ function handleExcelFile(file){
         img: String(colMap.img ? row[colMap.img] : '').trim(),
         link: String(colMap.link ? row[colMap.link] : '').trim(),
         price: String(colMap.price ? row[colMap.price] : '').trim(),
-        discount: String(colMap.discount ? row[colMap.discount] : '').trim()
+        discount: String(colMap.discount ? row[colMap.discount] : '').trim(),
+        soldOut: colMap.soldOut ? isSoldOutValue(row[colMap.soldOut]) : false
       })).filter(r => r.name && r.img && r.link);
       renderImportPreview(colMap);
     }catch(err){
@@ -668,12 +694,13 @@ function renderImportPreview(colMap){
     + `(상품명: "${colMap.name}"열, 사진: "${colMap.img}"열, 링크: "${colMap.link}"열`
     + (colMap.price ? `, 가격: "${colMap.price}"열` : '')
     + (colMap.discount ? `, 할인율: "${colMap.discount}"열` : '')
+    + (colMap.soldOut ? `, 품절여부: "${colMap.soldOut}"열` : '')
     + `) · 오늘 날짜로 등록되어 오늘 자정까지 노출돼요`;
   const table = document.getElementById('importTable');
   const previewRows = importedRows.slice(0, 5);
   table.innerHTML = `
-    <thead><tr><th>상품명</th><th>가격</th><th>할인율</th><th>링크</th></tr></thead>
-    <tbody>${previewRows.map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.price)}</td><td>${escapeHtml(r.discount)}</td><td>${escapeHtml(r.link)}</td></tr>`).join('')}</tbody>
+    <thead><tr><th>상품명</th><th>가격</th><th>할인율</th><th>품절</th><th>링크</th></tr></thead>
+    <tbody>${previewRows.map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.price)}</td><td>${escapeHtml(r.discount)}</td><td>${r.soldOut ? '품절' : '-'}</td><td>${escapeHtml(r.link)}</td></tr>`).join('')}</tbody>
   `;
 }
 
