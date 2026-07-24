@@ -122,6 +122,7 @@ app.post('/api/products', requireAdmin, (req, res) => {
     link: (req.body.link || '').trim(),
     price: (req.body.price || '').trim(),
     discount: (req.body.discount || '').trim(),
+    soldOut: !!req.body.soldOut,
     addedDate: todayStr()
   };
   if (!p.name || !p.img || !p.link) {
@@ -150,6 +151,7 @@ app.post('/api/products/bulk', requireAdmin, (req, res) => {
       name, img, link,
       price: (r.price || '').trim(),
       discount: (r.discount || '').trim(),
+      soldOut: !!r.soldOut,
       addedDate: today
     });
     existingLinks.add(link);
@@ -158,6 +160,16 @@ app.post('/api/products/bulk', requireAdmin, (req, res) => {
 
   writeData(products);
   res.json({ added });
+});
+
+// 상품 품절 상태 전환 (관리자 전용)
+app.post('/api/products/:id/toggle-soldout', requireAdmin, (req, res) => {
+  const products = readData();
+  const p = products.find(x => x.id === req.params.id);
+  if (!p) return res.status(404).json({ error: '상품을 찾을 수 없어요.' });
+  p.soldOut = !p.soldOut;
+  writeData(products);
+  res.json(p);
 });
 
 // 상품 삭제 (관리자 전용)
