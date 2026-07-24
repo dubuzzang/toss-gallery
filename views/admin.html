@@ -469,9 +469,10 @@ function render(){
     const isToday = p.addedDate === today;
     const card = document.createElement('div');
     card.className = 'card' + (isToday ? '' : ' expired');
-    const ribbonText = p.soldOut ? '품절' : (p.discount ? `${p.discount}% 할인` : '특가');
+    const cleanDiscount = String(p.discount || '').replace(/[^0-9]/g, '');
+    const ribbonText = p.soldOut ? '품절' : (cleanDiscount ? `${cleanDiscount}% 할인` : '특가');
     const priceRow = p.price
-      ? `<div class="price-row">${p.discount ? `<span class="discount-tag">${p.discount}% 할인</span>` : ''}<span class="price">${escapeHtml(p.price)}</span></div>`
+      ? `<div class="price-row">${cleanDiscount ? `<span class="discount-tag">${cleanDiscount}% 할인</span>` : ''}<span class="price">${escapeHtml(p.price)}</span></div>`
       : '';
     card.innerHTML = `
       <button class="delete-btn" title="삭제">×</button>
@@ -674,7 +675,7 @@ function handleExcelFile(file){
         img: String(colMap.img ? row[colMap.img] : '').trim(),
         link: String(colMap.link ? row[colMap.link] : '').trim(),
         price: String(colMap.price ? row[colMap.price] : '').trim(),
-        discount: String(colMap.discount ? row[colMap.discount] : '').trim(),
+        discount: String(colMap.discount ? row[colMap.discount] : '').replace(/[^0-9]/g, '').trim(),
         soldOut: colMap.soldOut ? isSoldOutValue(row[colMap.soldOut]) : false
       })).filter(r => r.name && r.img && r.link);
       renderImportPreview(colMap);
