@@ -121,7 +121,7 @@ app.post('/api/products', requireAdmin, (req, res) => {
     img: (req.body.img || '').trim(),
     link: (req.body.link || '').trim(),
     price: (req.body.price || '').trim(),
-    discount: (req.body.discount || '').trim(),
+    discount: (req.body.discount || '').replace(/[^0-9]/g, '').trim(),
     soldOut: !!req.body.soldOut,
     addedDate: todayStr()
   };
@@ -150,7 +150,7 @@ app.post('/api/products/bulk', requireAdmin, (req, res) => {
       id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
       name, img, link,
       price: (r.price || '').trim(),
-      discount: (r.discount || '').trim(),
+      discount: (r.discount || '').replace(/[^0-9]/g, '').trim(),
       soldOut: !!r.soldOut,
       addedDate: today
     });
