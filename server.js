@@ -122,6 +122,8 @@ app.post('/api/products', requireAdmin, (req, res) => {
     link: (req.body.link || '').trim(),
     price: (req.body.price || '').trim(),
     discount: (req.body.discount || '').trim(),
+    priceTag: (req.body.priceTag || '').trim(),
+    unitPrice: (req.body.unitPrice || '').trim(),
     soldOut: !!req.body.soldOut,
     addedDate: todayStr()
   };
@@ -151,6 +153,8 @@ app.post('/api/products/bulk', requireAdmin, (req, res) => {
       name, img, link,
       price: (r.price || '').trim(),
       discount: (r.discount || '').trim(),
+      priceTag: (r.priceTag || '').trim(),
+      unitPrice: (r.unitPrice || '').trim(),
       soldOut: !!r.soldOut,
       addedDate: today
     });
