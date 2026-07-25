@@ -123,6 +123,22 @@
     padding: 4px 40px;
     transform: rotate(-38deg);
     box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+    white-space: nowrap;
+  }
+  .ribbon-right{
+    position: absolute;
+    top: 12px;
+    right: -34px;
+    left: auto;
+    background: #E5342B;
+    color: #fff;
+    font-family:'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 4px 34px;
+    transform: rotate(38deg);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+    white-space: nowrap;
   }
   .date-badge{
     position: absolute;
@@ -469,8 +485,16 @@ function render(){
     const isToday = p.addedDate === today;
     const card = document.createElement('div');
     card.className = 'card' + (isToday ? '' : ' expired');
-    const cleanDiscount = String(p.discount || '').replace(/[^0-9]/g, '');
-    const ribbonText = p.soldOut ? '품절' : (cleanDiscount ? `${cleanDiscount}% 할인` : '특가');
+    const rawDiscount = String(p.discount || '');
+    const cleanDiscount = rawDiscount.replace(/[^0-9]/g, '');
+    const isBestEver = /역대급/.test(rawDiscount);
+    const isMonthLow = /30일|최저가/.test(rawDiscount);
+    let ribbonText;
+    if(p.soldOut) ribbonText = '품절';
+    else if(isBestEver) ribbonText = '역대급특가';
+    else if(cleanDiscount) ribbonText = `${cleanDiscount}% 할인`;
+    else ribbonText = '오늘만특가';
+    const showRightRibbon = !p.soldOut && isMonthLow;
     const priceRow = p.price
       ? `<div class="price-row">${cleanDiscount ? `<span class="discount-tag">${cleanDiscount}% 할인</span>` : ''}<span class="price">${escapeHtml(p.price)}</span></div>`
       : '';
@@ -478,6 +502,7 @@ function render(){
       <button class="delete-btn" title="삭제">×</button>
       <a class="photo-link" href="${escapeAttr(p.link)}" target="_blank" rel="noopener noreferrer">
         <span class="ribbon" style="${p.soldOut ? 'background:#4B5568;' : ''}">${escapeHtml(ribbonText)}</span>
+        ${showRightRibbon ? `<span class="ribbon-right">30일 최저가</span>` : ''}
         <img src="${escapeAttr(proxyImg(p.img))}" alt="${escapeAttr(p.name)}" onerror="handleImgError(this, '${escapeAttr(p.img)}')" style="${p.soldOut ? 'filter:grayscale(1); opacity:0.6;' : ''}">
         <span class="date-badge ${isToday ? 'today' : ''}">${isToday ? '오늘 노출중' : (p.addedDate || '') + ' (만료)'}</span>
       </a>
@@ -675,7 +700,7 @@ function handleExcelFile(file){
         img: String(colMap.img ? row[colMap.img] : '').trim(),
         link: String(colMap.link ? row[colMap.link] : '').trim(),
         price: String(colMap.price ? row[colMap.price] : '').trim(),
-        discount: String(colMap.discount ? row[colMap.discount] : '').replace(/[^0-9]/g, '').trim(),
+        discount: String(colMap.discount ? row[colMap.discount] : '').trim(),
         soldOut: colMap.soldOut ? isSoldOutValue(row[colMap.soldOut]) : false
       })).filter(r => r.name && r.img && r.link);
       renderImportPreview(colMap);
