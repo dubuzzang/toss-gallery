@@ -166,6 +166,10 @@
   }
   .price-row{ display: flex; align-items: baseline; gap: 8px; }
   .discount-tag{ color: var(--blue-light); font-family:'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; }
+  .unit-price-tag{
+    display: inline-block; align-self: flex-start; background: var(--surface-2); color: var(--text-muted);
+    font-size: 11px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border);
+  }
   .price{ font-family:'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; }
   .go-btn{
     margin-top: auto;
@@ -486,9 +490,11 @@ function render(){
     const card = document.createElement('div');
     card.className = 'card' + (isToday ? '' : ' expired');
     const rawDiscount = String(p.discount || '');
+    const rawTag = String(p.priceTag || '');
+    const combinedTagText = rawDiscount + ' ' + rawTag;
     const cleanDiscount = rawDiscount.replace(/[^0-9]/g, '');
-    const isBestEver = /역대급/.test(rawDiscount);
-    const isMonthLow = /30일|최저가/.test(rawDiscount);
+    const isBestEver = /역대급/.test(combinedTagText);
+    const isMonthLow = /30일|최저가/.test(combinedTagText);
     let ribbonText;
     if(p.soldOut) ribbonText = '품절';
     else if(isBestEver) ribbonText = '역대급특가';
@@ -498,6 +504,7 @@ function render(){
     const priceRow = p.price
       ? `<div class="price-row">${cleanDiscount ? `<span class="discount-tag">${cleanDiscount}% 할인</span>` : ''}<span class="price">${escapeHtml(p.price)}</span></div>`
       : '';
+    const unitPriceRow = p.unitPrice ? `<div class="unit-price-tag">${escapeHtml(p.unitPrice)}</div>` : '';
     card.innerHTML = `
       <button class="delete-btn" title="삭제">×</button>
       <a class="photo-link" href="${escapeAttr(p.link)}" target="_blank" rel="noopener noreferrer">
@@ -508,6 +515,7 @@ function render(){
       </a>
       <div class="card-body">
         <div class="card-title">${escapeHtml(p.name)}</div>
+        ${unitPriceRow}
         ${priceRow}
         <a class="go-btn" href="${escapeAttr(p.link)}" target="_blank" rel="noopener noreferrer">상품 보러가기 →</a>
         <button class="go-btn soldout-toggle-btn" style="background:${p.soldOut ? 'var(--blue)' : 'var(--surface-2)'}; color:${p.soldOut ? '#fff' : 'var(--text)'}; border:1px solid var(--border);">
@@ -636,6 +644,8 @@ const HEADER_KEYS = {
   name: ['상품명', '제품명', '상품', '제품'],
   price: ['가격', '판매가', '현재가', '최저가'],
   discount: ['할인율', '할인'],
+  priceTag: ['가격태그'],
+  unitPrice: ['단위가격', '단가'],
   img: ['사진주소', '이미지주소', '사진', '이미지', '썸네일'],
   link: ['쉐어링크', '내링크', '제휴링크', '링크'],
   soldOut: ['품절', '재고상태', '판매상태', '재고여부', '재고']
@@ -701,6 +711,8 @@ function handleExcelFile(file){
         link: String(colMap.link ? row[colMap.link] : '').trim(),
         price: String(colMap.price ? row[colMap.price] : '').trim(),
         discount: String(colMap.discount ? row[colMap.discount] : '').trim(),
+        priceTag: String(colMap.priceTag ? row[colMap.priceTag] : '').trim(),
+        unitPrice: String(colMap.unitPrice ? row[colMap.unitPrice] : '').trim(),
         soldOut: colMap.soldOut ? isSoldOutValue(row[colMap.soldOut]) : false
       })).filter(r => r.name && r.img && r.link);
       renderImportPreview(colMap);
@@ -720,13 +732,15 @@ function renderImportPreview(colMap){
     + `(상품명: "${colMap.name}"열, 사진: "${colMap.img}"열, 링크: "${colMap.link}"열`
     + (colMap.price ? `, 가격: "${colMap.price}"열` : '')
     + (colMap.discount ? `, 할인율: "${colMap.discount}"열` : '')
+    + (colMap.priceTag ? `, 가격태그: "${colMap.priceTag}"열` : '')
+    + (colMap.unitPrice ? `, 단위가격: "${colMap.unitPrice}"열` : '')
     + (colMap.soldOut ? `, 품절여부: "${colMap.soldOut}"열` : '')
     + `) · 오늘 날짜로 등록되어 오늘 자정까지 노출돼요`;
   const table = document.getElementById('importTable');
   const previewRows = importedRows.slice(0, 5);
   table.innerHTML = `
-    <thead><tr><th>상품명</th><th>가격</th><th>할인율</th><th>품절</th><th>링크</th></tr></thead>
-    <tbody>${previewRows.map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.price)}</td><td>${escapeHtml(r.discount)}</td><td>${r.soldOut ? '품절' : '-'}</td><td>${escapeHtml(r.link)}</td></tr>`).join('')}</tbody>
+    <thead><tr><th>상품명</th><th>가격</th><th>할인율</th><th>가격태그</th><th>단위가격</th><th>품절</th><th>링크</th></tr></thead>
+    <tbody>${previewRows.map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.price)}</td><td>${escapeHtml(r.discount)}</td><td>${escapeHtml(r.priceTag)}</td><td>${escapeHtml(r.unitPrice)}</td><td>${r.soldOut ? '품절' : '-'}</td><td>${escapeHtml(r.link)}</td></tr>`).join('')}</tbody>
   `;
 }
 
