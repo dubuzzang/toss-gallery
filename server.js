@@ -140,6 +140,9 @@ app.post('/api/products', requireAdmin, (req, res) => {
     discount: (req.body.discount || '').trim(),
     priceTag: (req.body.priceTag || '').trim(),
     unitPrice: (req.body.unitPrice || '').trim(),
+    category: (req.body.category || '').trim(),
+    isFlash: !!req.body.isFlash,
+    flashEndTime: (req.body.flashEndTime || '').trim(),
     soldOut: !!req.body.soldOut,
     addedDate: dealDateStr(readOg().resetTime)
   };
@@ -171,6 +174,7 @@ app.post('/api/products/bulk', requireAdmin, (req, res) => {
       discount: (r.discount || '').trim(),
       priceTag: (r.priceTag || '').trim(),
       unitPrice: (r.unitPrice || '').trim(),
+      category: (r.category || '').trim(),
       soldOut: !!r.soldOut,
       addedDate: today
     });
@@ -188,6 +192,18 @@ app.post('/api/products/:id/toggle-soldout', requireAdmin, (req, res) => {
   const p = products.find(x => x.id === req.params.id);
   if (!p) return res.status(404).json({ error: '상품을 찾을 수 없어요.' });
   p.soldOut = !p.soldOut;
+  writeData(products);
+  res.json(p);
+});
+
+// 상품 일부 정보 수정: 카테고리, 선착순딜 여부/마감시간 등 (관리자 전용)
+app.post('/api/products/:id/update', requireAdmin, (req, res) => {
+  const products = readData();
+  const p = products.find(x => x.id === req.params.id);
+  if (!p) return res.status(404).json({ error: '상품을 찾을 수 없어요.' });
+  if (typeof req.body.category === 'string') p.category = req.body.category.trim();
+  if (typeof req.body.isFlash === 'boolean') p.isFlash = req.body.isFlash;
+  if (typeof req.body.flashEndTime === 'string') p.flashEndTime = req.body.flashEndTime.trim();
   writeData(products);
   res.json(p);
 });
