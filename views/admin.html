@@ -403,6 +403,17 @@
       </div>
     </div>
   </div>
+
+  <div class="og-card" style="margin-top:16px;">
+    <div class="og-controls" style="flex:1;">
+      <h3>상품 초기화 시간</h3>
+      <p class="sub">매일 이 시간이 지나면 어제 등록한 특가는 방문자 화면에서 사라지고, 새로 등록하는 상품부터 오늘 몫으로 쌓여요. 기본값은 00:00(자정)이에요.</p>
+      <div class="og-url-row">
+        <input type="time" id="ogResetTimeInput" value="00:00" style="max-width:140px;">
+        <button onclick="saveResetTime()">초기화 시간 저장</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="grid" class="grid"></div>
@@ -457,17 +468,17 @@
 
 <script>
 let products = [];
-const STORAGE_KEY = 'products';
-
-function todayStr(){
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
+let currentDealDate = null;
 
 async function loadProducts(){
   try{
-    const res = await fetch('/api/products');
-    products = await res.json();
+    const [productsRes, configRes] = await Promise.all([
+      fetch('/api/products'),
+      fetch('/api/config')
+    ]);
+    products = await productsRes.json();
+    const cfg = await configRes.json();
+    currentDealDate = cfg.dealDate;
   }catch(e){
     products = [];
     showToast('서버에서 상품을 불러오지 못했어요.');
@@ -482,7 +493,7 @@ function render(){
   if(products.length === 0){ empty.style.display = 'block'; return; }
   empty.style.display = 'none';
 
-  const today = todayStr();
+  const today = currentDealDate;
   const sorted = products.slice().sort((a,b) => (b.addedDate || '').localeCompare(a.addedDate || '') || (b.id||'').localeCompare(a.id||''));
 
   sorted.forEach(p => {
@@ -780,7 +791,23 @@ async function loadOg(){
     document.getElementById('ogTitleInput').value = og.title || '';
     document.getElementById('ogDescInput').value = og.description || '';
     document.getElementById('ogBadgeInput').value = og.badge || '';
+    document.getElementById('ogResetTimeInput').value = og.resetTime || '00:00';
   }catch(e){ /* 무시 */ }
+}
+
+async function saveResetTime(){
+  const resetTime = document.getElementById('ogResetTimeInput').value;
+  if(!resetTime){ showToast('초기화 시간을 선택해주세요.'); return; }
+  try{
+    await fetch('/api/og', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resetTime })
+    });
+    showToast(`초기화 시간을 ${resetTime}으로 저장했어요!`);
+  }catch(e){
+    showToast('저장 중 문제가 생겼어요.');
+  }
 }
 
 async function saveOgText(){
