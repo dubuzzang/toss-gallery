@@ -1,3 +1,6 @@
+// 서버가 어느 지역에 배포되든 "자정"은 한국시간 기준이 되도록 고정
+process.env.TZ = 'Asia/Seoul';
+
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -51,9 +54,21 @@ function requireAdmin(req, res, next) {
   return res.status(401).send('관리자 인증이 필요해요.');
 }
 
-function todayStr() {
-  const d = new Date();
+function formatDateStr(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// resetTime(예: "00:00", "09:00")을 기준으로 "오늘"이 언제 바뀌는지 계산.
+// 지금 시각이 resetTime 이전이면 아직 어제(전날) 몫으로 취급.
+function dealDateStr(resetTime) {
+  const [rh, rm] = (resetTime || '00:00').split(':').map(n => parseInt(n, 10) || 0);
+  const now = new Date();
+  const resetToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), rh, rm, 0, 0);
+  if (now < resetToday) {
+    const prev = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    return formatDateStr(prev);
+  }
+  return formatDateStr(now);
 }
 
 function readData() {
@@ -72,7 +87,8 @@ const DEFAULT_OG = {
   title: '쇼핑 레이더 오늘의 특가 갤러리',
   description: '토스쇼핑 활동으로 수수료를 받습니다',
   badge: '토스쇼핑 활동으로 수수료를 받습니다',
-  image: ''
+  image: '',
+  resetTime: '00:00'
 };
 
 function readOg() {
@@ -107,7 +123,7 @@ app.get('/api/products', requireAdmin, (req, res) => {
 
 // 오늘 상품만 (방문자 페이지용 - 누구나 조회 가능)
 app.get('/api/products/today', (req, res) => {
-  const today = todayStr();
+  const today = dealDateStr(readOg().resetTime);
   const products = readData().filter(p => p.addedDate === today);
   res.json(products);
 });
@@ -125,7 +141,7 @@ app.post('/api/products', requireAdmin, (req, res) => {
     priceTag: (req.body.priceTag || '').trim(),
     unitPrice: (req.body.unitPrice || '').trim(),
     soldOut: !!req.body.soldOut,
-    addedDate: todayStr()
+    addedDate: dealDateStr(readOg().resetTime)
   };
   if (!p.name || !p.img || !p.link) {
     return res.status(400).json({ error: '상품명, 사진 주소, 링크는 꼭 필요해요.' });
@@ -138,7 +154,7 @@ app.post('/api/products', requireAdmin, (req, res) => {
 // 엑셀에서 뽑은 여러 상품 한번에 추가 (관리자 전용)
 app.post('/api/products/bulk', requireAdmin, (req, res) => {
   const products = readData();
-  const today = todayStr();
+  const today = dealDateStr(readOg().resetTime);
   const existingLinks = new Set(products.filter(p => p.addedDate === today).map(p => p.link));
   let added = 0;
 
@@ -195,8 +211,17 @@ app.post('/api/og', requireAdmin, (req, res) => {
   if (typeof req.body.title === 'string' && req.body.title.trim()) og.title = req.body.title.trim();
   if (typeof req.body.description === 'string' && req.body.description.trim()) og.description = req.body.description.trim();
   if (typeof req.body.badge === 'string' && req.body.badge.trim()) og.badge = req.body.badge.trim();
+  if (typeof req.body.resetTime === 'string' && /^([01]\d|2[0-3]):([0-5]\d)$/.test(req.body.resetTime.trim())) {
+    og.resetTime = req.body.resetTime.trim();
+  }
   writeOg(og);
   res.json(og);
+});
+
+// 방문자 페이지가 초기화 시간을 알 수 있도록 공개 API로도 제공
+app.get('/api/config', (req, res) => {
+  const og = readOg();
+  res.json({ resetTime: og.resetTime || '00:00', dealDate: dealDateStr(og.resetTime) });
 });
 
 app.post('/api/og/upload', requireAdmin, upload.single('image'), (req, res) => {
