@@ -475,6 +475,26 @@
   </div>
 </div>
 
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <h3>상품 정보 수정</h3>
+    <p class="sub" id="editProductName"></p>
+    <div class="field"><label>카테고리</label><input id="editCategory" type="text" placeholder="예: 식품, 뷰티, 생활용품"></div>
+    <div class="field" style="display:flex; align-items:center; gap:8px;">
+      <input id="editIsFlash" type="checkbox" style="width:auto;" onchange="document.getElementById('editFlashTimeField').style.display = this.checked ? 'block' : 'none';">
+      <label for="editIsFlash" style="margin:0; cursor:pointer;">선착순 딜로 등록</label>
+    </div>
+    <div class="field" id="editFlashTimeField" style="display:none;">
+      <label>마감 시간</label>
+      <input id="editFlashEndTime" type="datetime-local">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEditModal()">취소</button>
+      <button class="btn-save" id="editSaveBtn" onclick="saveEdit()">저장하기</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="importOverlay">
   <div class="modal import-modal">
     <h3>엑셀로 상품 불러오기</h3>
@@ -610,46 +630,69 @@ function render(){
     `;
     card.querySelector('.delete-btn').addEventListener('click', () => removeProduct(p.id));
     card.querySelector('.soldout-toggle-btn').addEventListener('click', () => toggleSoldOut(p.id));
-    card.querySelector('.edit-btn').addEventListener('click', () => quickEdit(p.id));
+    card.querySelector('.edit-btn').addEventListener('click', () => openEditModal(p.id));
     grid.appendChild(card);
   });
 }
 
-async function quickEdit(id){
+let editingId = null;
+
+function isoToLocalInput(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function openEditModal(id){
   const p = products.find(x => x.id === id);
   if(!p) return;
+  editingId = id;
+  document.getElementById('editProductName').textContent = p.name || '';
+  document.getElementById('editCategory').value = p.category || '';
+  document.getElementById('editIsFlash').checked = !!p.isFlash;
+  document.getElementById('editFlashEndTime').value = isoToLocalInput(p.flashEndTime);
+  document.getElementById('editFlashTimeField').style.display = p.isFlash ? 'block' : 'none';
+  document.getElementById('editOverlay').classList.add('open');
+}
 
-  const categoryInput = window.prompt('카테고리를 입력해주세요 (비우면 그대로 유지)', p.category || '');
-  const category = categoryInput === null ? p.category : categoryInput.trim();
+function closeEditModal(){
+  document.getElementById('editOverlay').classList.remove('open');
+  editingId = null;
+}
 
-  const flashInput = window.prompt('선착순 딜인가요? y(예) / n(아니오) — 비우면 그대로 유지', p.isFlash ? 'y' : 'n');
-  let isFlash = p.isFlash;
-  let flashEndTime = p.flashEndTime || '';
-  if(flashInput !== null && flashInput.trim() !== ''){
-    isFlash = flashInput.trim().toLowerCase().startsWith('y');
-    if(isFlash){
-      const timeInput = window.prompt('마감 시간을 입력해주세요 (예: 2026-07-27 20:00)', '');
-      if(timeInput){
-        const d = new Date(timeInput.trim().replace(' ', 'T'));
-        if(!isNaN(d.getTime())) flashEndTime = d.toISOString();
-        else { showToast('마감 시간 형식을 이해하지 못했어요. 다시 시도해주세요.'); return; }
-      }
-    }else{
-      flashEndTime = '';
-    }
+async function saveEdit(){
+  if(!editingId) return;
+  const category = document.getElementById('editCategory').value.trim();
+  const isFlash = document.getElementById('editIsFlash').checked;
+  const flashEndTimeRaw = document.getElementById('editFlashEndTime').value;
+
+  if(isFlash && !flashEndTimeRaw){
+    showToast('선착순 딜은 마감 시간을 정해주세요.');
+    return;
   }
+  const flashEndTime = (isFlash && flashEndTimeRaw) ? new Date(flashEndTimeRaw).toISOString() : '';
+
+  const btn = document.getElementById('editSaveBtn');
+  btn.disabled = true;
+  btn.textContent = '저장 중...';
 
   try{
-    await fetch('/api/products/' + id + '/update', {
+    await fetch('/api/products/' + editingId + '/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category, isFlash, flashEndTime })
     });
     await loadProducts();
     showToast('수정했어요!');
+    closeEditModal();
   }catch(e){
     showToast('수정 중 문제가 생겼어요.');
   }
+
+  btn.disabled = false;
+  btn.textContent = '저장하기';
 }
 
 async function toggleSoldOut(id){
