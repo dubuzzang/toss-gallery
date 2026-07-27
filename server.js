@@ -216,6 +216,16 @@ app.delete('/api/products/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// 오늘이 아닌(지난) 상품을 한번에 삭제 (관리자 전용)
+app.delete('/api/products/expired/all', requireAdmin, (req, res) => {
+  const today = dealDateStr(readOg().resetTime);
+  const products = readData();
+  const remaining = products.filter(p => p.addedDate === today);
+  const removed = products.length - remaining.length;
+  writeData(remaining);
+  res.json({ removed });
+});
+
 // ---- 공유 미리보기(OG) API (관리자 전용) ----
 app.get('/api/og', requireAdmin, (req, res) => {
   res.json(readOg());
