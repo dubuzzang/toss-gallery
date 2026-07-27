@@ -396,6 +396,7 @@
 </header>
 
 <div class="toolbar">
+  <button class="import-btn" onclick="deleteExpired()" style="color:#FF7A45; border-color:rgba(255,122,69,0.4);">🗑 지난 상품 전체 삭제</button>
   <button class="import-btn" onclick="openImportModal()">📊 엑셀로 한번에 불러오기</button>
   <button class="add-btn" onclick="openModal()">＋ 상품 추가</button>
 </div>
@@ -709,6 +710,24 @@ async function removeProduct(id){
     await fetch('/api/products/' + id, { method: 'DELETE' });
     await loadProducts();
     showToast('삭제했어요.');
+  }catch(e){
+    showToast('삭제 중 문제가 생겼어요.');
+  }
+}
+
+async function deleteExpired(){
+  const expiredCount = products.filter(p => p.addedDate !== currentDealDate).length;
+  if(expiredCount === 0){
+    showToast('지난 상품이 없어요.');
+    return;
+  }
+  const ok = window.confirm(`오늘 것이 아닌 지난 상품 ${expiredCount}개를 전부 삭제할까요? 되돌릴 수 없어요.`);
+  if(!ok) return;
+  try{
+    const res = await fetch('/api/products/expired/all', { method: 'DELETE' });
+    const data = await res.json();
+    await loadProducts();
+    showToast(`지난 상품 ${data.removed}개를 삭제했어요.`);
   }catch(e){
     showToast('삭제 중 문제가 생겼어요.');
   }
