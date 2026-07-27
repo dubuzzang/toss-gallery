@@ -1,7 +1,0 @@
-playwright
-openpyxl
-pyinstaller
-gspread
-google-auth
-pyinstaller-hooks-contrib
-requests
