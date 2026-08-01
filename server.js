@@ -314,6 +314,9 @@ app.get('/', (req, res) => {
   const imageUrl = og.image
     ? (og.image.startsWith('http') ? og.image : host + og.image)
     : '';
+  const appleIconUrl = og.icon
+    ? (og.icon.startsWith('http') ? og.icon : host + og.icon)
+    : host + '/assets/default-icon-192.png';
 
   fs.readFile(path.join(__dirname, 'views', 'front.html'), 'utf-8', (err, html) => {
     if (err) return res.status(500).send('페이지를 불러오지 못했어요.');
@@ -331,9 +334,10 @@ app.get('/', (req, res) => {
     res.send(
       html
         .replace('<!--OG_META-->', metaTags)
-        .replace('{{OG_TITLE}}', escapeHtmlStr(og.title))
-        .replace('{{OG_DESC}}', escapeHtmlStr(og.description))
-        .replace('{{OG_BADGE}}', escapeHtmlStr(og.badge))
+        .replace(/\{\{OG_TITLE\}\}/g, escapeHtmlStr(og.title))
+        .replace(/\{\{OG_DESC\}\}/g, escapeHtmlStr(og.description))
+        .replace(/\{\{OG_BADGE\}\}/g, escapeHtmlStr(og.badge))
+        .replace(/\{\{APPLE_ICON\}\}/g, escapeAttrStr(appleIconUrl))
     );
   });
 });
