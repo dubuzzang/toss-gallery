@@ -29,6 +29,7 @@ const upload = multer({
 
 // 업로드된 사진 파일만 공개로 서빙 (관리자/프론트 페이지 파일은 여기 없음)
 app.use('/uploads', express.static(UPLOAD_DIR));
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 const DATA_FILE = path.join(DATA_DIR, 'data.json');
 const OG_FILE = path.join(DATA_DIR, 'og.json');
@@ -88,6 +89,7 @@ const DEFAULT_OG = {
   description: '토스쇼핑 활동으로 수수료를 받습니다',
   badge: '토스쇼핑 활동으로 수수료를 받습니다',
   image: '',
+  icon: '',
   resetTime: '00:00'
 };
 
@@ -234,6 +236,7 @@ app.get('/api/og', requireAdmin, (req, res) => {
 app.post('/api/og', requireAdmin, (req, res) => {
   const og = readOg();
   if (typeof req.body.image === 'string') og.image = req.body.image.trim();
+  if (typeof req.body.icon === 'string') og.icon = req.body.icon.trim();
   if (typeof req.body.title === 'string' && req.body.title.trim()) og.title = req.body.title.trim();
   if (typeof req.body.description === 'string' && req.body.description.trim()) og.description = req.body.description.trim();
   if (typeof req.body.badge === 'string' && req.body.badge.trim()) og.badge = req.body.badge.trim();
@@ -256,6 +259,47 @@ app.post('/api/og/upload', requireAdmin, upload.single('image'), (req, res) => {
   og.image = '/uploads/' + req.file.filename;
   writeOg(og);
   res.json(og);
+});
+
+app.post('/api/icon/upload', requireAdmin, upload.single('image'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '파일이 없어요.' });
+  const og = readOg();
+  og.icon = '/uploads/' + req.file.filename;
+  writeOg(og);
+  res.json(og);
+});
+
+// ---- 바탕화면 바로가기(PWA) ----
+app.get('/manifest.json', (req, res) => {
+  const og = readOg();
+  const host = req.protocol + '://' + req.get('host');
+  const iconUrl = og.icon
+    ? (og.icon.startsWith('http') ? og.icon : host + og.icon)
+    : host + '/assets/default-icon-512.png';
+  const iconUrl192 = og.icon
+    ? (og.icon.startsWith('http') ? og.icon : host + og.icon)
+    : host + '/assets/default-icon-192.png';
+
+  res.type('application/manifest+json').json({
+    name: og.title || '쇼핑 레이더 오늘의 특가 갤러리',
+    short_name: (og.title || '특가 갤러리').slice(0, 12),
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#070B16',
+    theme_color: '#0064FF',
+    icons: [
+      { src: iconUrl192, sizes: '192x192', type: 'image/png' },
+      { src: iconUrl, sizes: '512x512', type: 'image/png' }
+    ]
+  });
+});
+
+app.get('/sw.js', (req, res) => {
+  res.type('application/javascript').send(
+    "self.addEventListener('install', () => self.skipWaiting());\n" +
+    "self.addEventListener('activate', () => self.clients.claim());\n" +
+    "self.addEventListener('fetch', () => {});\n"
+  );
 });
 
 // ---- 페이지 ----

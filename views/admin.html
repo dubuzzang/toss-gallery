@@ -427,6 +427,20 @@
   </div>
 
   <div class="og-card" style="margin-top:16px;">
+    <div class="og-preview" id="iconPreview">미리보기 없음</div>
+    <div class="og-controls">
+      <h3>바탕화면 바로가기 아이콘</h3>
+      <p class="sub">방문자가 "바탕화면에 추가" 했을 때 보일 아이콘이에요. 정사각형 사진을 추천해요. (안 정하면 기본 아이콘이 사용돼요)</p>
+      <div class="og-dropzone" id="iconDropzone">📷 여기를 눌러 사진 선택 또는 끌어다 놓기</div>
+      <input type="file" id="iconFileInput" accept="image/*" style="display:none;">
+      <div class="og-url-row">
+        <input type="text" id="iconUrlInput" placeholder="또는 이미지 웹주소(URL) 붙여넣기">
+        <button onclick="saveIconUrl()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="og-card" style="margin-top:16px;">
     <div class="og-controls" style="flex:1;">
       <h3>상품 초기화 시간</h3>
       <p class="sub">매일 이 시간이 지나면 어제 등록한 특가는 방문자 화면에서 사라지고, 새로 등록하는 상품부터 오늘 몫으로 쌓여요. 기본값은 00:00(자정)이에요.</p>
@@ -976,6 +990,7 @@ async function loadOg(){
     const res = await fetch('/api/og');
     const og = await res.json();
     renderOgPreview(og.image);
+    renderIconPreview(og.icon);
     document.getElementById('ogUrlInput').value = '';
     document.getElementById('ogTitleInput').value = og.title || '';
     document.getElementById('ogDescInput').value = og.description || '';
@@ -1074,6 +1089,65 @@ ogDropzone.addEventListener('drop', (e) => {
   e.preventDefault();
   ogDropzone.classList.remove('dragover');
   if(e.dataTransfer.files && e.dataTransfer.files[0]) uploadOgFile(e.dataTransfer.files[0]);
+});
+
+function renderIconPreview(imagePath){
+  const preview = document.getElementById('iconPreview');
+  if(imagePath){
+    preview.innerHTML = `<img src="${escapeAttr(imagePath)}">`;
+  }else{
+    preview.innerHTML = '미리보기 없음';
+  }
+}
+
+async function uploadIconFile(file){
+  if(!file || !file.type.startsWith('image/')){
+    showToast('이미지 파일만 올릴 수 있어요.');
+    return;
+  }
+  const formData = new FormData();
+  formData.append('image', file);
+  try{
+    const res = await fetch('/api/icon/upload', { method: 'POST', body: formData });
+    if(!res.ok) throw new Error('upload failed');
+    const og = await res.json();
+    renderIconPreview(og.icon);
+    showToast('바탕화면 아이콘을 저장했어요!');
+  }catch(e){
+    showToast('아이콘 업로드 중 문제가 생겼어요.');
+  }
+}
+
+async function saveIconUrl(){
+  const url = document.getElementById('iconUrlInput').value.trim();
+  if(!url){ showToast('이미지 주소를 입력해주세요.'); return; }
+  try{
+    const res = await fetch('/api/og', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ icon: url })
+    });
+    const og = await res.json();
+    renderIconPreview(og.icon);
+    showToast('바탕화면 아이콘을 저장했어요!');
+  }catch(e){
+    showToast('저장 중 문제가 생겼어요.');
+  }
+}
+
+const iconDropzone = document.getElementById('iconDropzone');
+const iconFileInput = document.getElementById('iconFileInput');
+
+iconDropzone.addEventListener('click', () => iconFileInput.click());
+iconFileInput.addEventListener('change', (e) => {
+  if(e.target.files && e.target.files[0]) uploadIconFile(e.target.files[0]);
+});
+iconDropzone.addEventListener('dragover', (e) => { e.preventDefault(); iconDropzone.classList.add('dragover'); });
+iconDropzone.addEventListener('dragleave', () => iconDropzone.classList.remove('dragover'));
+iconDropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  iconDropzone.classList.remove('dragover');
+  if(e.dataTransfer.files && e.dataTransfer.files[0]) uploadIconFile(e.dataTransfer.files[0]);
 });
 
 // 화면 어디서나 Ctrl+V로 이미지 붙여넣기
