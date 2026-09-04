@@ -9,7 +9,7 @@
     "build": "node cloudflare/build.mjs",
     "dev:cloudflare": "npm run build && wrangler dev --config cloudflare/worker.jsonc",
     "deploy:cloudflare": "npm run deploy:worker && npm run deploy:pages",
-    "check:worker": "node --check server.js && wrangler deploy --dry-run --config cloudflare/worker.jsonc",
+    "check:worker": "node --check server.js && npm run build && wrangler deploy --dry-run --config cloudflare/worker.jsonc",
     "deploy:worker": "npm run build && wrangler deploy --config cloudflare/worker.jsonc",
     "deploy:pages": "npm run build && wrangler pages deploy dist --project-name dubuzzang-toss-gallery"
   },
