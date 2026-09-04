@@ -5,19 +5,24 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const cloudflareStorage = require('./cloudflare/storage');
+const IS_CLOUDFLARE = process.env.CLOUDFLARE_RUNTIME === 'true';
+const CLOUDFLARE_ASSETS = IS_CLOUDFLARE ? require('./cloudflare/runtime.mjs') : {};
+const ADMIN_HTML = CLOUDFLARE_ASSETS.adminHtml || null;
+const FRONT_HTML = CLOUDFLARE_ASSETS.frontHtml || null;
 
 const app = express();
 app.use(express.json());
 
 // 레일웨이에 "Volume"을 /data 경로로 연결해두면 재배포해도 데이터가 안 사라져요.
 // 볼륨이 없으면(로컬 테스트 등) 그냥 프로젝트 폴더에 저장해요.
-const DATA_DIR = fs.existsSync('/data') ? '/data' : __dirname;
+const DATA_DIR = cloudflareStorage.isCloudflare ? '/tmp' : (fs.existsSync('/data') ? '/data' : __dirname);
 
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+if (!cloudflareStorage.isCloudflare && !fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const upload = multer({
-  storage: multer.diskStorage({
+  storage: cloudflareStorage.isCloudflare ? multer.memoryStorage() : multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOAD_DIR),
     filename: (req, file, cb) => {
       const ext = path.extname(file.originalname) || '.jpg';
@@ -28,8 +33,10 @@ const upload = multer({
 });
 
 // 업로드된 사진 파일만 공개로 서빙 (관리자/프론트 페이지 파일은 여기 없음)
-app.use('/uploads', express.static(UPLOAD_DIR));
-app.use('/assets', express.static(path.join(__dirname, 'assets')));
+if (!cloudflareStorage.isCloudflare) {
+  app.use('/uploads', express.static(UPLOAD_DIR));
+  app.use('/assets', express.static(path.join(__dirname, 'assets')));
+}
 
 const DATA_FILE = path.join(DATA_DIR, 'data.json');
 const OG_FILE = path.join(DATA_DIR, 'og.json');
@@ -37,8 +44,8 @@ const OG_FILE = path.join(DATA_DIR, 'og.json');
 // ---- 관리자 비밀번호 보호 ----
 // Railway의 Variables 탭에서 ADMIN_USER, ADMIN_PASSWORD를 꼭 원하는 값으로 설정해주세요.
 // 설정하지 않으면 아래 기본값(admin / toss1234)으로 동작하니, 배포 후 꼭 바꿔주세요.
-const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'toss1234';
+const ADMIN_USER = cloudflareStorage.getBinding('ADMIN_USER', process.env.ADMIN_USER) || 'admin';
+const ADMIN_PASSWORD = cloudflareStorage.getBinding('ADMIN_PASSWORD', process.env.ADMIN_PASSWORD) || 'toss1234';
 
 function requireAdmin(req, res, next) {
   const header = req.headers.authorization || '';
@@ -73,15 +80,11 @@ function dealDateStr(resetTime) {
 }
 
 function readData() {
-  try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-  } catch (e) {
-    return [];
-  }
+  return cloudflareStorage.readJson('data', DATA_FILE, []);
 }
 
 function writeData(products) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(products, null, 2));
+  cloudflareStorage.writeJson('data', DATA_FILE, products);
 }
 
 const DEFAULT_OG = {
@@ -94,15 +97,11 @@ const DEFAULT_OG = {
 };
 
 function readOg() {
-  try {
-    return { ...DEFAULT_OG, ...JSON.parse(fs.readFileSync(OG_FILE, 'utf-8')) };
-  } catch (e) {
-    return { ...DEFAULT_OG };
-  }
+  return { ...DEFAULT_OG, ...cloudflareStorage.readJson('og', OG_FILE, {}) };
 }
 
 function writeOg(og) {
-  fs.writeFileSync(OG_FILE, JSON.stringify(og, null, 2));
+  cloudflareStorage.writeJson('og', OG_FILE, og);
 }
 
 function escapeAttrStr(str) {
@@ -117,6 +116,18 @@ function escapeHtmlStr(str) {
 }
 
 // ---- 상품 API ----
+
+app.use(cloudflareStorage.jsonMiddleware({ data: [], og: DEFAULT_OG }));
+
+app.get('/uploads/:filename', async (req, res, next) => {
+  if (!cloudflareStorage.isCloudflare) return next();
+  if (!/^og-[0-9]+\.[a-zA-Z0-9]+$/.test(req.params.filename)) return res.status(400).send('잘못된 파일 이름이에요.');
+  const object = await cloudflareStorage.getObject(`uploads/${req.params.filename}`);
+  if (!object) return res.status(404).send('파일을 찾을 수 없어요.');
+  res.setHeader('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  res.send(Buffer.from(await object.arrayBuffer()));
+});
 
 // 전체 상품 목록 (관리자 전용 - 오늘 것 + 지난 것 모두)
 app.get('/api/products', requireAdmin, (req, res) => {
@@ -253,18 +264,24 @@ app.get('/api/config', (req, res) => {
   res.json({ resetTime: og.resetTime || '00:00', dealDate: dealDateStr(og.resetTime) });
 });
 
-app.post('/api/og/upload', requireAdmin, upload.single('image'), (req, res) => {
+app.post('/api/og/upload', requireAdmin, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '파일이 없어요.' });
   const og = readOg();
-  og.image = '/uploads/' + req.file.filename;
+  const ext = path.extname(req.file.originalname) || '.jpg';
+  const filename = req.file.filename || ('og-' + Date.now() + ext);
+  if (cloudflareStorage.isCloudflare) await cloudflareStorage.putObject(`uploads/${filename}`, req.file.buffer, req.file.mimetype);
+  og.image = '/uploads/' + filename;
   writeOg(og);
   res.json(og);
 });
 
-app.post('/api/icon/upload', requireAdmin, upload.single('image'), (req, res) => {
+app.post('/api/icon/upload', requireAdmin, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '파일이 없어요.' });
   const og = readOg();
-  og.icon = '/uploads/' + req.file.filename;
+  const ext = path.extname(req.file.originalname) || '.jpg';
+  const filename = req.file.filename || ('og-' + Date.now() + ext);
+  if (cloudflareStorage.isCloudflare) await cloudflareStorage.putObject(`uploads/${filename}`, req.file.buffer, req.file.mimetype);
+  og.icon = '/uploads/' + filename;
   writeOg(og);
   res.json(og);
 });
@@ -305,6 +322,7 @@ app.get('/sw.js', (req, res) => {
 // ---- 페이지 ----
 
 app.get('/admin', requireAdmin, (req, res) => {
+  if (cloudflareStorage.isCloudflare) return res.type('html').send(ADMIN_HTML);
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
 
@@ -318,8 +336,7 @@ app.get('/', (req, res) => {
     ? (og.icon.startsWith('http') ? og.icon : host + og.icon)
     : host + '/assets/default-icon-192.png';
 
-  fs.readFile(path.join(__dirname, 'views', 'front.html'), 'utf-8', (err, html) => {
-    if (err) return res.status(500).send('페이지를 불러오지 못했어요.');
+  const render = (html) => {
     const metaTags = `
   <meta property="og:title" content="${escapeAttrStr(og.title)}">
   <meta property="og:description" content="${escapeAttrStr(og.description)}">
@@ -339,6 +356,12 @@ app.get('/', (req, res) => {
         .replace(/\{\{OG_BADGE\}\}/g, escapeHtmlStr(og.badge))
         .replace(/\{\{APPLE_ICON\}\}/g, escapeAttrStr(appleIconUrl))
     );
+  };
+
+  if (cloudflareStorage.isCloudflare) return render(FRONT_HTML);
+  fs.readFile(path.join(__dirname, 'views', 'front.html'), 'utf-8', (err, html) => {
+    if (err) return res.status(500).send('페이지를 불러오지 못했어요.');
+    render(html);
   });
 });
 
